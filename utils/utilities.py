@@ -53,12 +53,14 @@ def resize4patch(image, h, w, patch_size=16):
         (w, h),
         interpolation=cv2.INTER_AREA,
     )
+    
     return image, h, w
 
 def computeNoiseRes(image, blur_kernel=5):
     blurred = cv2.GaussianBlur(image, (blur_kernel, blur_kernel), 0)
     residual = image - blurred
     residual = cv2.normalize(residual, None, 0, 255, cv2.NORM_MINMAX)
+
     return residual
 
 def corrcoef(a) -> float:
