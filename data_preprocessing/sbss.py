@@ -10,6 +10,7 @@ class SBSS:
             self,
             df: pd.DataFrame=None,
             non_pca_cols: np.ndarray=None,
+            pca_components: int=50,
             random_state: int=0,
             image_id: str='image_id',
             label_col: str='label'
@@ -17,22 +18,22 @@ class SBSS:
 
         self.df = df
         self.non_pca = non_pca_cols
+        self.pca_components = pca_components
         self.random_state = random_state
         self.image_id = image_id
         self.label = label_col
 
     def image_fingerprint(
-            self,
-            pca_components: int=70,
+            self
     ):
     
         X = self.df.drop(self.non_pca, axis=1)
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
-        pca = PCA(n_components=pca_components)
+        pca = PCA(n_components=self.pca_components)
         X_pca = pca.fit_transform(X_scaled)
-        df_pca = pd.DataFrame(X_pca, columns=[f'feat_{x}' for x in np.arange(70)])
+        df_pca = pd.DataFrame(X_pca, columns=[f'feat_{x}' for x in np.arange(self.pca_components)])
         for i, cols in enumerate(self.non_pca):
             df_pca.insert(i, cols, self.df[cols])
         
@@ -79,7 +80,7 @@ class SBSS:
     ):
         clusters = self.kmeans(plot=plot_cluster)
 
-        df_split = pd.concat([self.df[self.image_id], pd.DataFrame(clusters, columns=['cluster_id'])], axis=1)
+        df_split = pd.DataFrame(clusters, columns=['cluster_id']).reset_index(names=['image_id'])
         df_split['train?'] = np.zeros((len(df_split)), dtype=np.int8)
         
         for i in range(df_split['cluster_id'].nunique()):

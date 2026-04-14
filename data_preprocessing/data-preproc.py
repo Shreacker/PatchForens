@@ -8,9 +8,11 @@ from pathlib import Path
 
 from sbss import SBSS
 
-df_path = Path('../data/feat_matrix/Manipulate-Image-Features.pkl')
+BASE_DIR = Path(__file__).resolve().parent
+df_path = (BASE_DIR / '../data/feat_matrix/Manipulate-Image-Features.pkl').resolve()
 archive_path = df_path.with_name(df_path.stem + '.tar.gz')
 
+# Import data
 if not os.path.exists(archive_path):
     with tarfile.open(archive_path, 'w:gz') as tar:
         try:
@@ -49,6 +51,7 @@ sbss = SBSS(
     df,
     non_pca_cols=['image_id', 'label'],
     random_state=21
-    )
+)
 
 X_train, X_test, y_train, y_test = sbss.train_test_split(test_size=0.2)
+print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
