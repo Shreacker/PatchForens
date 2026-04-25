@@ -12,6 +12,7 @@ env/
 
 IMD2020/
 IMD2020_edges/
+plot/
 *.zip
 *.tar
 *.tar.gz
