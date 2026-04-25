@@ -93,11 +93,12 @@ class SBSS:
 
         # Train 'n Test data split
         feat_cols = self.df.filter(like='feat_').columns
+        cols = feat_cols.insert(0, self.image_id)
         train_data = self.df[self.df[self.image_id].isin(train_idx)]
-        X_train = train_data[feat_cols].values
-        y_train = train_data[self.label].values
+        X_train = train_data[cols]
+        y_train = train_data[self.label]
         test_data = self.df[self.df[self.image_id].isin(test_idx)]
-        X_test = test_data[feat_cols].values
-        y_test = test_data[self.label].values
+        X_test = test_data[feat_cols]
+        y_test = test_data[self.label]
 
         return X_train, X_test, y_train, y_test
