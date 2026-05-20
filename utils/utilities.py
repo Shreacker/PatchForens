@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import cv2
 from skimage import io, color
 from skimage.color import label2rgb
