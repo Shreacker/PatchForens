@@ -4,37 +4,12 @@ import pickle
 import os
 import tarfile
 import gzip
+import sys
 from pathlib import Path
 
-from sbss import SBSS
-
-def robustScale(
-        dataF: pd.DataFrame,
-        cols: np.ndarray,
-        train: bool=True,
-        median: float=None,
-        IQR=None,
-        threshold: float=1e-2
-    ):
-    df = dataF.copy()
-
-    if not train:
-        if median is None and IQR is None:
-            raise ValueError('Median and IQR of train set does not exist.')
-        else:
-            df[cols] = (df[cols] - median) / IQR
-
-        return df
-    
-    else:
-        Q1 = df[cols].quantile(0.25)
-        Q3 = df[cols].quantile(0.75)
-        IQR = Q3 - Q1
-        IQR = IQR.clip(lower=threshold)
-        median = df[cols].median()
-        df[cols] = (df[cols] - median) / IQR
-
-        return df, median, IQR
+sys.path.insert(0, '../')
+from data_preprocessing.utils.sbss import SBSS
+from .utils.preprocess import *
 
 BASE_DIR = Path(__file__).resolve().parent
 df_path = (BASE_DIR / '../data/feat_matrix/Manipulate-Image-Features.pkl').resolve()
