@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, '../')
-from data_preprocessing.utils.sbss import SBSS
+from data_preprocessing.src.splitter import SBSS
 from .utils.preprocess import *
 
 BASE_DIR = Path(__file__).resolve().parent
