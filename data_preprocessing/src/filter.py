@@ -1,0 +1,263 @@
+import numpy as np
+import pandas as pd
+from abc import ABC, abstractmethod
+import sys
+
+from data_preprocessing.utils.dataset import Dataset
+from data_preprocessing.utils.utilities import _entropy, _ig, _su
+
+class BaseFilterMethod(ABC):
+    @abstractmethod
+    def __init__(self):
+        self.score_dict = dict()
+
+    @abstractmethod
+    def score(self, ds: Dataset) -> dict[str, float]:
+        ...
+
+class InformationGain(BaseFilterMethod):
+    def score(
+            self,
+            ds: Dataset,
+            bins: int = 10
+    ):
+        X, y = ds[:]
+
+        for col in X.columns:
+            if (X[col].dtype.kind in 'bifc') and len(np.unique(X[col])) > bins:
+                binned_x = pd.qcut(X[col], bins, duplicates='drop')
+                X_0 = binned_x
+                ds_0 = Dataset(X_0, y)
+            else:
+                X_0 = X[col]
+                ds_0 = Dataset(X_0, y)
+
+            self.score_dict[col] = _ig(ds_0)
+
+        return dict(sorted(self.score_dict.items(), key=lambda item: item[1], reverse=True))
+    
+class SymmetricUncertainty(BaseFilterMethod):
+    def score(
+            self,
+            ds: Dataset,
+            bins: int = 10
+    ):
+        X, y = ds[:]
+
+        for col in X.columns:
+            if (X[col].dtype.kind in 'bifc') and len(np.unique(X[col])) > bins:
+                binned_x = pd.qcut(X[col], bins, duplicates='drop')
+                X_0 = binned_x
+            else:
+                X_0 = X[col]
+                
+            ds_0 = Dataset(X_0, y)
+            self.score_dict[col] = _su(ds_0)
+
+        return dict(sorted(self.score_dict.items(), key=lambda item: item[1], reverse=True))
+    
+class BaseScoreCombiner(ABC):
+    @abstractmethod
+    def combine(self, scores: list[dict[str, float]]) -> list[int]:
+        ...
+
+    def _cut(self, scores: dict[int, float]) -> list[int]:
+        if self.top_k:
+            return sorted(scores, key=scores.get, reverse=True)[:self.top_k]
+        if self.threshold:
+            return [k for k, v in scores.items() if v >= self.threshold]
+        raise ValueError('Specify either top_k or threshold.')
+
+class MeanCombiner(BaseScoreCombiner):
+    def __init__(
+            self,
+            top_k: int | None = 1,
+            threshold: float | None = None
+    ):
+        self.top_k = top_k
+        self.threshold = threshold
+    
+    def combine(
+            self,
+            scores: list[dict[str, float]]
+    ):
+        keys = scores[0].keys()
+        merged = {k: np.mean([s[k] for s in scores]) for k in keys}
+        return self._cut(merged)
+    
+class IntersectCombiner(BaseScoreCombiner):
+    def __init__(
+            self,
+            top_k: int | None = 1,
+            min_agreement: int | None = 1
+    ):
+        self.top_k = top_k
+        self.min_agreement = min_agreement
+
+    def combine(
+            self,
+            scores: list[dict[str, float]]
+    ):
+        min_agree = self.min_agreement or len(scores)
+
+        def top_keys(s):
+            return set(sorted(s, key=s.get, reverse=True)[:self.top_k])
+        
+        agreement = {
+            k: sum(k in top_keys(s) for s in scores)
+            for k in scores[0].keys()
+        }
+        
+        return [k for k, count in agreement.items() if count >= min_agree]
+    
+class Filter:
+    def __init__(
+            self,
+            methods: list[BaseFilterMethod],
+            combiner: BaseScoreCombiner = None,
+    ):
+        self.methods = methods
+        self.combiner = combiner
+
+    def fit_select(
+            self,
+            ds: Dataset
+    ) -> Dataset:
+        scores = [m.score(ds) for m in self.methods]
+
+        self.selected = (
+            scores[0]
+            if len(scores) == 1
+            else self.combiner.combine(scores)
+        )
+
+        return self.apply(ds)
+    
+    def apply(
+            self,
+            ds: Dataset,
+    ) -> Dataset:
+        X, y = ds.copy()
+        X = X.loc[:, self.selected]
+
+        return Dataset(X, y)
+
+class QuantileBoundaryFilter:
+    def __init__(
+            self,
+            col: str | None = None,
+            lower: float | None = 0.,
+            upper: float | None = 1.
+    ):
+        if col is None:
+            raise ValueError('col cannot be None.')
+
+        self.col = col
+        self.lower = lower
+        self.upper = upper
+
+    def fit(
+            self,
+            ds: Dataset | None = None,
+            df: pd.DataFrame | None = None,
+    ):
+        if ds is not None and df is not None:
+            raise ValueError('Pass only either Dataset or DataFrame argument at a time.')
+        if ds is None and df is None:
+            raise ValueError('Pass either a Dataset or DataFrame.')
+        
+        feat = self._extract_feature(ds, df)
+        self.lower_bound_ = feat.quantile(self.lower)
+        self.upper_bound_ = feat.quantile(self.upper)
+        
+        return self
+    
+    def transform(
+            self,
+            ds: Dataset | None = None,
+            df: pd.DataFrame | None = None,
+    ) -> Dataset | pd.DataFrame:
+        if ds is not None and df is not None:
+            raise ValueError('Pass only either Dataset or DataFrame argument at a time.')
+        if ds is None and df is None:
+            raise ValueError('Pass either a Dataset or DataFrame.')
+        if not hasattr(self, 'lower_bound_'):
+            raise RuntimeError('Call fit() before transform().')
+        
+        feat = self._extract_feature(ds, df)
+        mask = feat.between(self.lower_bound_, self.upper_bound_) | feat.isna()
+
+        if ds is not None:
+            return ds[mask]
+        
+        return df[mask]
+    
+    def fit_transform(
+            self,
+            ds: Dataset | None = None,
+            df: pd.DataFrame | None = None,
+    ) -> Dataset | pd.DataFrame:
+        self.fit(ds, df)
+        return self.transform(ds, df)
+    
+    def _extract_feature(
+            self,
+            ds: Dataset | None,
+            df: pd.DataFrame | None
+    ) -> pd.Series:
+        if ds is not None:
+            if self.col in ds.x.columns:
+                return ds.x[self.col]
+            elif self.col == ds.y.name:
+                return ds.y
+            else:
+                raise KeyError(f'Invalid feature name: {self.col}.')
+            
+        return df[self.col]
+
+def quantile_boundary(
+        ds: Dataset | None = None,
+        df: pd.DataFrame | None = None,
+        col: str | None = None,
+        lower: float | None = None,
+        upper: float | None = None
+):
+    if ds is not None and df is not None:
+        raise ValueError('Pass only either Dataset or DataFrame argument at a time.')
+    
+    if lower is None or upper is None:
+        raise ValueError
+    
+    if col is None:
+        raise ValueError
+
+    if ds:
+        if col in ds.x.columns:
+            feat = ds.x[col]
+        elif col == ds.y.name:
+            feat = ds.y
+        else:
+            raise KeyError(f'Invalid feature name: {col}.')
+    elif df:
+        feat = df[col]
+
+    mask = _make_quantile_mask(feat, lower, upper)
+    
+    if ds:
+        ds = ds[mask]
+        return ds
+
+    elif df:
+        df = df[mask]
+        return df
+
+def _make_quantile_mask(
+        feat: pd.Series | None = None,
+        lower: float | None = None,
+        upper: float | None = None,
+):
+    lower = feat.quantile(lower)
+    upper = feat.quantile(upper)
+    mask = (feat.between(lower, upper) | feat.isna())
+
+    return mask
