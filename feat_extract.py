@@ -84,18 +84,24 @@ feature_extractors = [
     'noise_residual_extract',
     'wavelet_extract',
     'fft_extract',
-    # 'dct_extract',
+    'dct_extract',
     'lbp_extract',
     'glcm_extract',
-    'stat_extract'
+    'stat_extract',
+    'gsm_extract',
+    'laplacian_stat_extract',
+    'hprb_extract',
+    'hog_extract',
+    'color_hist_extract',
+    'chroma_correlation_extract'
 ]
 
-sample_dict = dict(list(index_dict.items())[350:])
+sample_dict = dict(list(index_dict.items())[:10])
 X, Y = Index2Features(sample_dict, feature_extractors, patch_size=32, stride=16)
 
-with open('data/feat_matrix/X11.pkl', 'wb') as f:
+with open('data/feat_matrix/X0.pkl', 'wb') as f:
     pickle.dump(X, f)
-with open('data/feat_matrix/Y11.pkl', 'wb') as f:
+with open('data/feat_matrix/Y0.pkl', 'wb') as f:
     pickle.dump(Y, f)
 
 print(len(X[0][0]), len(X), len(Y))
