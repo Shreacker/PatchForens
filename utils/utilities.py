@@ -4,6 +4,7 @@ import cv2
 from skimage import io, color
 from skimage.color import label2rgb
 from skimage.util import img_as_ubyte
+from scipy.stats import skew as np_skew, kurtosis as np_kurtosis
 
 def mask2labels(
         mask_img,
@@ -57,10 +58,19 @@ def resize4patch(image, h, w, patch_size=16):
     
     return image, h, w
 
+def hannWindow(image, patch_size=16):
+    h = np.hanning(patch_size)
+    window = np.outer(h, h)
+
+    image_windowed = image * window
+
+    return image_windowed
+
 def computeNoiseRes(image, blur_kernel=5):
+    image = image.astype(np.float32)
     blurred = cv2.GaussianBlur(image, (blur_kernel, blur_kernel), 0)
     residual = image - blurred
-    residual = cv2.normalize(residual, None, 0, 255, cv2.NORM_MINMAX)
+    # residual = cv2.normalize(residual, None, 0, 255, cv2.NORM_MINMAX)
 
     return residual
 
@@ -81,40 +91,18 @@ def corrcoef(a) -> float:
 
     return corr
 
-def skew(a) -> float:
-    n = len(a)
-    m = np.mean(a)
-    sd = np.std(a, ddof=1)
-    third_moment = np.mean((a - m) ** 3)
-
-    if sd < 1e-8:
-        return 0.0
+def skew(a, **kwargs):
+    if np.var(a) < 1e-10:
+        skewness = 0.0
     else:
-        skewness = third_moment / (sd ** 3)
+        skewness = np_skew(a, **kwargs)
 
     return skewness
 
-def kurtosis(a, fisher=True, bias=True) -> float:
-    n = len(a)
-    m = np.mean(a)
-    sd = np.std(a, ddof=1)
-    fourth_moment = np.mean((a - m) ** 4)
-
-    if sd < 1e-8:
-        return 0.0
+def kurtosis(a, **kwargs):
+    if np.var(a) < 1e-10:
+        kurt = 0.0
     else:
-        kurt = fourth_moment / (sd ** 4)
-
-    if not bias:
-        e = a - m
-        m2 = np.mean(e ** 2)
-        m4 = np.mean(e ** 4)
-
-        k2 = (n / (n - 1)) * m2
-        k4 = (n**2 * ((n + 1) * m4 - 3 * (n - 1) * m2**2)) / ((n - 1) * (n - 2) * (n - 3))
-
-        kurt = k4 / (k2 ** 2) if k2 > 1e-8 else 0.0
-
-    kurt -= 3 if fisher else kurt
+        kurt = np_kurtosis(a, **kwargs)
 
     return kurt
