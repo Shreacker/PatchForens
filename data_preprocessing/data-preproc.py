@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, '../')
 from data_preprocessing.src.splitter import SBSS
-from .utils.preprocess import *
+# from .utils.preprocess import *
 
 BASE_DIR = Path(__file__).resolve().parent
 df_path = (BASE_DIR / '../data/feat_matrix/Manipulate-Image-Features.pkl').resolve()
@@ -62,6 +62,6 @@ sbss = SBSS(
 X_train, X_test, y_train, y_test = sbss.train_test_split(test_size=0.2)
 
 # Normalization
-feat_cols = X_train.filter(like='feat_').columns
-X_train_norm, median, IQR = robustScale(X_train, feat_cols, train=True)
-X_test_norm = robustScale(X_test, feat_cols, train=False, median=median, IQR=IQR)
+# feat_cols = X_train.filter(like='feat_').columns
+# X_train_norm, median, IQR = robustScale(X_train, feat_cols, train=True)
+# X_test_norm = robustScale(X_test, feat_cols, train=False, median=median, IQR=IQR)
