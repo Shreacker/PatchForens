@@ -23,6 +23,8 @@ X/
 Y/
 legacy/
 
+data/feat_matrix
+
 checkpoints/
 *.pkl
 *.pth
