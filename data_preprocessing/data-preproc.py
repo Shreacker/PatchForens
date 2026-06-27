@@ -108,9 +108,34 @@ train_idx, val_idx, test_idx, y_train, y_val, y_test = sbss.train_val_test_split
                                                             val_frac=0.1, test_frac=0.1
                                                         )
 print(f'Train size: {len(train_idx)}, Val size: {len(val_idx)}, Test size: {len(test_idx)}')
+print(f'')
 
 del sbss
 gc.collect()
+
+'''
+FEATURE SELECTOR
+'''
+top_k = 100
+print(
+    '==============================\n'
+    f'SELECTING TOP-{top_k} FEATURES\n'
+    '=============================='
+)
+
+ig = InformationGain()
+su = SymmetricUncertainty()
+combiner = MeanCombiner(top_k=top_k)
+
+filter = Filter(methods=[ig, su], combiner=combiner)
+filter.fit(X=feat_mat, y=y_train, indices=train_idx, n_bins=30)
+
+selected_cols = filter.selected_columns
+print(f'Kept {len(selected_cols)} out of {n_feats} columns')
+
+# Save selected features
+with open(PROCESSED_PATH / 'selected_cols.pkl', 'wb') as f:
+    pickle.dump(selected_cols, f)
 
 '''
 UNDERSAMPLE NON-MANIPULATED PATCHES IN TRAINING SET
@@ -128,30 +153,6 @@ train_idx_bal = balancer.fit_transform(
     keep_original_ratio=0.05
 )
 y_train_bal = meta_df.loc[train_idx_bal, 'label'].values
-
-'''
-FEATURE SELECTOR
-'''
-top_k = 100
-print(
-    '==============================\n'
-    f'SELECTING TOP-{top_k} FEATURES\n'
-    '=============================='
-)
-
-ig = InformationGain()
-su = SymmetricUncertainty()
-combiner = MeanCombiner(top_k=top_k)
-
-filter = Filter(methods=[ig, su], combiner=combiner)
-filter.fit(X=feat_mat, y=y_train_bal, indices=train_idx_bal, n_bins=30)
-
-selected_cols = filter.selected_columns
-print(f'Kept {len(selected_cols)} out of {n_feats} columns')
-
-# Save selected features
-with open(PROCESSED_PATH / 'selected_cols.pkl', 'wb') as f:
-    pickle.dump(selected_cols, f)
 
 '''
 DATA NORMALIZER
