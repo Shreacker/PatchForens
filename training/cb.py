@@ -4,7 +4,7 @@ import os, gc
 import pickle
 from time import time
 from pathlib import Path
-from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, accuracy_score
 
 TRAIN_PATH = Path('data/feat_matrix/processed/train')
@@ -90,32 +90,32 @@ print(np.unique(y_train), np.unique(y_val), np.unique(y_test))
 # ====================================
 print('---------------------------------')
 print('Initializing Model...')
-model = XGBClassifier(
-    n_estimators=10000,
+model = CatBoostClassifier(
+    grow_policy='Lossguide',
+    iterations=10000,
     learning_rate=0.02,
-    subsample=0.7,
-    max_depth=6,
-    max_leaves=50,
-    min_child_weight=4,
-    colsample_bytree=0.7,
-    colsample_bylevel=0.7,
-    colsample_bynode=0.7,
-    gamma=0.0,
-    reg_lambda=1,
-    reg_alpha=0.0,
-    objective='binary:logistic',
-    eval_metric=['logloss', 'auc', 'aucpr'],
+    subsample=1.0,
+    depth=12,
+    max_leaves=140,
+    min_data_in_leaf=5, # min_child_samples
+    colsample_bylevel=0.65,
+    l2_leaf_reg=3.0, # lambda
+    loss_function='Logloss',
+    eval_metric='AUC',
+    custom_metric=['Logloss', 'PRAUC'],
     early_stopping_rounds=50,
-    random_state=42,
-    n_jobs=-1
+    random_seed=42,
+    thread_count=-1,
+    verbose=200,
+    train_dir='./temp/catboost_info/',
 )
 
 start = time()
 print('Start Training Model...')
 model.fit(
     X_train, y_train,
-    eval_set=[(X_train, y_train), (X_val, y_val)],
-    verbose=200
+    eval_set=[(X_val, y_val)],
+    use_best_model=True
 )
 end = time()
 train_time = (end - start) / 60.0
@@ -157,11 +157,11 @@ print(f'Confusion Matrix:\n {test_con_mat}')
 # SAVING MODEL CHECKPOINTS
 # ====================================
 if True:
-    model.save_model(CHKP_PATH / 'xgboost_checkpoint.json')
+    model.save_model(CHKP_PATH / 'catboost_checkpoint.cbm')
 
 # ====================================
 # LOAD MODEL CHECKPOINTS
 # ====================================
 if False:
-    model = XGBClassifier()
-    model.load_model(CHKP_PATH / "xgboost_checkpoint.json")
+    model = CatBoostClassifier()
+    model.load_model(CHKP_PATH / 'catboost_checkpoint.cbm')
