@@ -22,7 +22,7 @@ def mask2labels(
             patch = mask_img[y:y+patch_size, x:x+patch_size]
 
             isManip = (
-                np.sum(patch) > mask_threshold * patch_size
+                np.sum(patch) > mask_threshold * patch_size**2
             ).astype(np.uint8)
             labels.append(isManip)
 
