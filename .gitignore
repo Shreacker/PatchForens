@@ -22,10 +22,11 @@ DexiNed/
 X/
 Y/
 legacy/
+temp/
 
 data/feat_matrix
 
-checkpoints/
+# checkpoints/
 *.pkl
 *.pth
 *.pt
