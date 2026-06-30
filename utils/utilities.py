@@ -43,7 +43,6 @@ def convert2gray(image, binary=False):
     return image
 
 def resize4patch(image, h, w, patch_size=16):
-
     if h % patch_size == 0 and w % patch_size == 0:
         return image, h, w
 
@@ -57,6 +56,49 @@ def resize4patch(image, h, w, patch_size=16):
     )
     
     return image, h, w
+
+def patchify(image, h, w, patch_size=32, stride=16):
+    patches = []
+
+    for y in range(0, h - patch_size + 1, stride):
+        for x in range(0, w - patch_size + 1, stride):
+            patches.append(image[y:y+patch_size, x:x+patch_size])
+
+    print(f'Number of Patches: {len(patches)}')
+
+    return patches
+
+def unpatchify(patches, h, w, patch_size=32, stride=16):
+    if len(patches.shape) == 1:
+        reconstructed = np.zeros((h, w), dtype=np.float32)
+    else:
+        channels = patches.shape[-1] if len(patches.shape) > 3 else 1
+        shape = (h, w, channels) if channels > 1 else (h, w)
+        reconstructed = np.zeros(shape, dtype=np.float32)
+        
+    overlap_count = np.zeros((h, w), dtype=np.float32)
+    
+    idx = 0
+    for y in range(0, h - patch_size + 1, stride):
+        for x in range(0, w - patch_size + 1, stride):
+            if len(patches.shape) == 1:
+                reconstructed[y:y+patch_size, x:x+patch_size] += patches[idx]
+            else:
+                reconstructed[y:y+patch_size, x:x+patch_size] += patches[idx]
+                
+            overlap_count[y:y+patch_size, x:x+patch_size] += 1
+            idx += 1
+            
+    overlap_count[overlap_count == 0] = 1
+    
+    if len(patches.shape) == 1:
+        reconstructed = reconstructed / overlap_count
+    else:
+        reconstructed = reconstructed / overlap_count[:, :, np.newaxis] \
+                        if len(reconstructed.shape) == 3 \
+                        else reconstructed / overlap_count
+        
+    return reconstructed
 
 def hannWindow(image, patch_size=16):
     h = np.hanning(patch_size)
