@@ -19,6 +19,8 @@ def Index2Features(
     X = []
     Y = []
     feat_dims = {}
+    feat_idx = {}
+    current_col_idx = 0
 
     for key, path in dataset_index.items():
 
@@ -32,7 +34,7 @@ def Index2Features(
             if not hasattr(extr, extractor):
                 raise NameError(
                     f"Extractor '{extractor}' is not a valid function."
-                    f"Try using extractors in these list: {FEATURE_EXTRACTORS}"
+                    f"Try using extractors in this list: {FEATURE_EXTRACTORS}"
                 )
             
             method = getattr(extr, extractor)
@@ -40,7 +42,11 @@ def Index2Features(
             orig_feature_list.append(feat)
 
             if extractor not in feat_dims:
-                feat_dims[extractor] = feat.shape[1]
+                n_cols = feat.shape[1]
+                feat_dims[extractor] = n_cols
+                
+                feat_idx[extractor] = list(range(current_col_idx, current_col_idx + n_cols))
+                current_col_idx += n_cols
 
         orig_features = np.hstack(orig_feature_list)
         orig_labels = np.zeros(orig_features.shape[0], dtype=np.uint8)
@@ -84,7 +90,7 @@ def Index2Features(
         total += dim
     print(f'  Total: {total}\n')
 
-    return X, Y
+    return X, Y, feat_idx
 
 INDEX_PATH = 'data/json/imd2020_index.json'
 
@@ -107,12 +113,14 @@ feature_extractors = [
     'chroma_correlation_extract'
 ]
 
-sample_dict = dict(list(index_dict.items())[310:350])
-X, Y = Index2Features(sample_dict, feature_extractors, patch_size=32, stride=16)
+sample_dict = dict(list(index_dict.items())[:1])
+X, Y, feat_idx = Index2Features(sample_dict, feature_extractors, patch_size=32, stride=16)
 
 with open('data/feat_matrix/X/X10.pkl', 'wb') as f:
     pickle.dump(X, f)
 with open('data/feat_matrix/Y/Y10.pkl', 'wb') as f:
     pickle.dump(Y, f)
+with open('data/feat_matrix/feat_idx.pkl', 'wb') as f:
+    pickle.dump(feat_idx, f)
 
 print(len(X[0][0]), len(X), len(Y))
