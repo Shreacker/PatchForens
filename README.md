@@ -100,6 +100,6 @@ Once the data is preprocessed, you can train the individual base classifiers (XG
 * Execute the respective training scripts in this folder to generate the initial model checkpoints.
 
 ### 5. Ensemble Meta-Learning
-Finally, stack the predictions of the trained base models and use them to train the Meta-Learner (Logistic Regression).
+Finally, stack the predictions of the trained base models and evaluate on Validation set.
 * **Script:** `main.py`
-* Running this script computes the optimal weighted voting scheme and produces the final `meta_learner.joblib` checkpoint used for the interactive demo.
+* Running this script ensembles the models' checkpoints with soft voting and weighted voting mechanisms.
